@@ -219,3 +219,37 @@ export const MODEL_INFO = {
   totalFeatures: 47,
   accuracy: 0.94,
 };
+
+export interface UpdateStatus {
+  status: 'up_to_date' | 'offline-fallback';
+  model_loaded: boolean;
+  vectorizer_loaded: boolean;
+  model_version: string;
+  last_updated: string | null;
+}
+
+export async function checkForUpdates(): Promise<UpdateStatus> {
+  try {
+    const response = await fetch(`${API_BASE}/updates/check`);
+    if (!response.ok) {
+      throw new Error('Unable to fetch update status');
+    }
+
+    const data = await response.json();
+    return {
+      status: data.status ?? 'up_to_date',
+      model_loaded: Boolean(data.model_loaded),
+      vectorizer_loaded: Boolean(data.vectorizer_loaded),
+      model_version: data.model_version ?? MODEL_INFO.version,
+      last_updated: data.last_updated ?? MODEL_INFO.lastUpdate,
+    };
+  } catch {
+    return {
+      status: 'offline-fallback',
+      model_loaded: true,
+      vectorizer_loaded: true,
+      model_version: MODEL_INFO.version,
+      last_updated: MODEL_INFO.lastUpdate,
+    };
+  }
+}
