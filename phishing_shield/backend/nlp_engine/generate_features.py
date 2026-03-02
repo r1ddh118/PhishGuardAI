@@ -8,8 +8,8 @@ import sys
 import pandas as pd
 from scipy import sparse
 
-from backend.nlp_engine.vectorizer import EnhancedVectorizer
-from backend.nlp_engine.feature_extractor import extract_features
+from .vectorizer import EnhancedVectorizer
+from .feature_extractor import extract_features
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"

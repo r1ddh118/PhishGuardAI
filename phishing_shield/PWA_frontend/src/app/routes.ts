@@ -1,12 +1,14 @@
 import { createBrowserRouter, redirect } from 'react-router';
 import { RootLayout } from './components/RootLayout';
 import { Login } from './pages/Login';
-import { ThreatScanConsole } from './pages/ThreatScanConsole';
+import ThreatScanConsole from './pages/ThreatScanConsole';
 import { ScanHistory } from './pages/ScanHistory';
 import { ThreatAnalytics } from './pages/ThreatAnalytics';
 import { SystemStatus } from './pages/SystemStatus';
+import { ExplainabilityDetails } from './pages/ExplainabilityDetails';
+import { GoogleSetup } from './pages/GoogleSetup';
+import { AccountDetails } from './pages/AccountDetails';
 
-// Inline auth check to avoid module-level localStorage access
 function checkAuth(): boolean {
   if (typeof window === 'undefined') return false;
   const sessionData = localStorage.getItem('phishguard_session');
@@ -19,7 +21,6 @@ function checkAuth(): boolean {
   }
 }
 
-// Loader function to check authentication
 function protectedLoader() {
   if (!checkAuth()) {
     return redirect('/login');
@@ -27,10 +28,9 @@ function protectedLoader() {
   return null;
 }
 
-// Loader for login page - redirect if already authenticated
 function loginLoader() {
   if (checkAuth()) {
-    return redirect('/');
+    return redirect('/account-details');
   }
   return null;
 }
@@ -42,15 +42,23 @@ export const router = createBrowserRouter([
     loader: loginLoader,
   },
   {
+    path: '/auth/google-setup',
+    Component: GoogleSetup,
+    loader: loginLoader,
+  },
+  {
     path: '/',
     Component: RootLayout,
     loader: protectedLoader,
     children: [
-      { index: true, Component: ThreatScanConsole },
+      { index: true, loader: () => redirect('/account-details') },
+      { path: 'account-details', Component: AccountDetails },
+      { path: 'scan', Component: ThreatScanConsole },
       { path: 'history', Component: ScanHistory },
+      { path: 'history/explainability/:scanId', Component: ExplainabilityDetails },
       { path: 'analytics', Component: ThreatAnalytics },
       { path: 'system', Component: SystemStatus },
-      { path: '*', loader: () => redirect('/') },
+      { path: '*', loader: () => redirect('/account-details') },
     ],
   },
   {

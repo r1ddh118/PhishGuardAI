@@ -92,6 +92,16 @@ export function ThreatAnalytics() {
     { name: 'Critical', count: scans.filter(s => s.riskLevel === 'critical').length },
   ];
 
+
+  const confidenceTrendData = [...scans]
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .map((scan, index) => ({
+      scan: `#${index + 1}`,
+      time: format(new Date(scan.timestamp), 'MMM dd HH:mm'),
+      confidence: Number((scan.confidence * 100).toFixed(1)),
+      verdict: scan.verdict,
+    }));
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -214,6 +224,32 @@ export function ThreatAnalytics() {
                 </div>
               ))}
             </div>
+          </Card>
+        </div>
+
+        <div className="mb-6">
+          <Card className="p-6 bg-zinc-900 border-zinc-800">
+            <h3 className="text-sm font-semibold mb-4">Confidence Trend per Scan</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={confidenceTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" />
+                <XAxis dataKey="scan" stroke="#71717a" style={{ fontSize: '12px' }} />
+                <YAxis domain={[0, 100]} stroke="#71717a" style={{ fontSize: '12px' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid #3f3f46',
+                    borderRadius: '8px'
+                  }}
+                  formatter={(value: number) => [`${value}%`, 'Confidence']}
+                  labelFormatter={(_, payload) => {
+                    const point = payload?.[0]?.payload;
+                    return point ? `${point.scan} · ${point.time}` : 'Scan';
+                  }}
+                />
+                <Line type="monotone" dataKey="confidence" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
           </Card>
         </div>
 

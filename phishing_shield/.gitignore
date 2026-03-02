@@ -1,3 +1,5 @@
+# Prevent node_modules from being pushed to GitHub
+node_modules/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -48,12 +50,9 @@ Thumbs.db
 logs/
 *.log
 
-# Generated data / artifacts
-# model binaries and vectorizers (generated at runtime)
+# Generated data / artifacts (Member 1 & 3)
 backend/model/*.pkl
 backend/model/*.joblib
-
-# Feature matrices and intermediate binary artifacts
 data/*.npz
 data/features.csv
 
@@ -62,17 +61,125 @@ data/features.csv
 .env.*
 local_settings.py
 
-# Misc
-*.orig
-
+# Scripts
 scripts/*.sh
 
-# Frontend / PWA artifacts (ignore Node.js build outputs and caches)
-PWA_frontend/node_modules
+# Frontend / PWA artifacts (Member 4)
+node_modules/
+PWA_frontend/node_modules/
 PWA_frontend/dist/
 PWA_frontend/build/
 PWA_frontend/.next/
-PWA_frontend/out/ PWA_frontend/.nuxt/ PWA_frontend/.parcel-cache/ PWA_frontend/.cache/ PWA_frontend/.pnp.cjs PWA_frontend/.pnp.js # Local frontend env and debug logs 
-PWA_frontend/.env.local PWA_frontend/.env.*.local PWA_frontend/npm-debug.log* PWA_frontend/yarn-debug.log* PWA_frontend/yarn-error.log* # Generated service worker / runtime caches PWA_frontend/public/sw.js 
+PWA_frontend/out/
+PWA_frontend/.nuxt/
+PWA_frontend/.parcel-cache/
+PWA_frontend/.cache/
+PWA_frontend/.pnp.cjs
+PWA_frontend/.pnp.js
+
+# Local frontend env and debug logs 
+PWA_frontend/.env.local
+PWA_frontend/.env.*.local
+PWA_frontend/npm-debug.log*
+PWA_frontend/yarn-debug.log*
+PWA_frontend/yarn-error.log*
+
+# Generated service worker / runtime caches
+PWA_frontend/public/sw.js 
 frontend/public/service-worker.js
 frontend/public/workbox-*.js
+
+# Misc
+*.orig# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# MyPy
+.mypy_cache/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+logs/
+*.log
+
+# Generated data / artifacts (Member 1 & 3)
+backend/model/*.pkl
+backend/model/*.joblib
+data/*.npz
+data/features.csv
+
+# Local secrets / env
+.env
+.env.*
+local_settings.py
+
+# Scripts
+scripts/*.sh
+
+# Frontend / PWA artifacts (Member 4)
+node_modules/
+PWA_frontend/node_modules/
+PWA_frontend/dist/
+PWA_frontend/build/
+PWA_frontend/.next/
+PWA_frontend/out/
+PWA_frontend/.nuxt/
+PWA_frontend/.parcel-cache/
+PWA_frontend/.cache/
+PWA_frontend/.pnp.cjs
+PWA_frontend/.pnp.js
+
+# Local frontend env and debug logs 
+PWA_frontend/.env.local
+PWA_frontend/.env.*.local
+PWA_frontend/npm-debug.log*
+PWA_frontend/yarn-debug.log*
+PWA_frontend/yarn-error.log*
+
+# Generated service worker / runtime caches
+PWA_frontend/public/sw.js 
+frontend/public/service-worker.js
+frontend/public/workbox-*.js
+
+# Misc
+*.orig
+
+backend/storage.db

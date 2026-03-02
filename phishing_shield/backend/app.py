@@ -48,64 +48,54 @@ class PredictResponse(BaseModel):
     triggeredFeatures: list
     explanation: str
 
+class ScanRequest(BaseModel):
+    text: str
+
+class BatchScanRequest(BaseModel):
+    texts: list[str]
+
 @app.get("/")
 def read_root():
-    return {"status": "online", "model_version": "1.0.0"}
+    return {"status": "online", "model_version": "2.4.0"}
 
-@app.post("/predict", response_model=PredictResponse)
-async def predict(request: PredictRequest):
-    if model is None or vectorizer is None:
-        raise HTTPException(status_code=500, detail="Model not loaded")
-    
-    # 1. Extract features for explainability
-    email_data = {
-        "body": request.content,
-        "subject": request.subject,
-        "sender": request.sender
+@app.get("/updates/check")
+def check_updates():
+    return {
+        "status": "up_to_date",
+        "model_loaded": model is not None,
+        "vectorizer_loaded": vectorizer is not None,
+        "model_version": "2.4.0",
+        "last_updated": "2026-03-02T14:00:00Z"
     }
-    features_dict = extract_features(email_data)
+
+def perform_prediction(content: str):
+    # 1. Extract features for explainability
+    features_dict = extract_features(content)
     
-    # 2. Transform text for model
-    # EnhancedVectorizer handles both text and engineered features
-    X = vectorizer.transform([request.content])
+    # 2. Transform for model using EnhancedVectorizer (2011 features)
+    if vectorizer is None or model is None:
+        return {"error": "Model or vectorizer not loaded"}
+        
+    X = vectorizer.transform([content])
     
     # 3. Predict
-    prediction_idx = int(model.predict(X)[0])
     probabilities = list(model.predict_proba(X)[0])
-    confidence = float(probabilities[prediction_idx])
-    
-    # 4. Determine risk level
-    # logic similar to train_model thresholds
     phishing_prob = float(probabilities[1])
     
-    import uuid
-    request_id = str(uuid.uuid4())[:8]
-    
-    print(f"\n--- [Request {request_id}] ---")
-    print(f"Content: {request.content[:50]}...")
-    print(f"Engineered Features: { {k:v for k,v in features_dict.items() if k != 'text'} }")
-    print(f"Model Classes: {model.classes_}")
-    print(f"Prediction Index: {prediction_idx}")
-    print(f"Probabilities: {probabilities}")
-    print(f"Initial Phishing Prob: {phishing_prob}")
-    
+    # 4. Initial Verdict
     if phishing_prob < 0.3:
         prediction = "safe"
-        riskLevel = "low"
+        risk_level = "Low"
     elif phishing_prob < 0.8:
         prediction = "suspicious"
-        riskLevel = "medium"
+        risk_level = "Medium"
     else:
         prediction = "phishing"
-        riskLevel = "high"
+        risk_level = "High"
         if phishing_prob > 0.95:
-            riskLevel = "critical"
+            risk_level = "Critical"
 
     # --- SAFETY SHIELD HEURISTIC ---
-    # Downgrade if: 
-    # 1. Short message (< 100 chars)
-    # 2. No URLs
-    # 3. No other high-risk indicators
     is_short = features_dict.get("length", 0) < 100
     has_no_urls = features_dict.get("url_count", 0) == 0
     has_no_urgency = features_dict.get("urgency_score", 0) == 0
@@ -113,33 +103,52 @@ async def predict(request: PredictRequest):
     has_no_credentials = features_dict.get("credential_request_score", 0) == 0
     
     if is_short and has_no_urls and has_no_urgency and has_low_impersonation and has_no_credentials:
-        if riskLevel in ["medium", "high", "critical"]:
-            print(f"[Request {request_id}] Safety Shield Triggered: Downgrading {riskLevel} to low/safe.")
+        if risk_level in ["Medium", "High", "Critical"]:
+            print(f"Safety Shield Triggered: Downgrading {risk_level} to Low.")
+            risk_level = "Low"
             prediction = "safe"
-            riskLevel = "low"
-            # Adjust confidence to reflect the safety override if it was leaning phishing
             if phishing_prob > 0.5:
-                # If model was over 50% phishing but we are sure it is safe, 
-                # we return the probability of it being SAFE (1 - phishing_prob)
-                confidence = float(1.0 - phishing_prob)
-            
-    # 5. Format response
-    triggered_explanations = features_dict.get("explanations", [])
-    triggeredFeatures = [
-        {"name": f["feature"], "detected": True, "severity": float(f["value"]) if isinstance(f["value"], (int, float)) else 1.0}
-        for f in triggered_explanations
-    ]
-    
-    explanation_text = " | ".join([f"{f['feature']}: {f['reason']}" for f in triggered_explanations])
-    if not explanation_text:
-        explanation_text = "No specific phishing indicators detected."
+                phishing_prob = 1.0 - phishing_prob
 
+    return {
+        "is_phishing": prediction == "phishing",
+        "confidence": float(max(probabilities) if prediction != "safe" else (1.0 - phishing_prob)),
+        "risk_level": risk_level,
+        "explanations": features_dict.get("explanations", []),
+        "highlighted_lines": features_dict.get("highlighted_lines", [])
+    }
+
+@app.post("/scan")
+async def scan(request: ScanRequest):
+    if model is None:
+        raise HTTPException(status_code=500, detail="Model not loaded")
+    return perform_prediction(request.text)
+
+@app.post("/batch-scan")
+async def batch_scan(request: BatchScanRequest):
+    results = []
+    for text in request.texts:
+        res = perform_prediction(text)
+        results.append({
+            "text_preview": text[:50] + "...",
+            "is_phishing": res["is_phishing"],
+            "confidence": res["confidence"],
+            "risk_level": res["risk_level"]
+        })
+    return {"batch_results": results, "total_scanned": len(results)}
+
+@app.post("/predict", response_model=PredictResponse)
+async def predict(request: PredictRequest):
+    # Backward compatibility for old frontend
+    res = perform_prediction(request.content)
+    prediction = "phishing" if res["is_phishing"] else ("suspicious" if res["risk_level"] == "Medium" else "safe")
+    
     return PredictResponse(
         prediction=prediction,
-        confidence=confidence,
-        riskLevel=riskLevel,
-        triggeredFeatures=triggeredFeatures,
-        explanation=explanation_text
+        confidence=res["confidence"],
+        riskLevel=res["risk_level"].lower(),
+        triggeredFeatures=[{"name": f["feature"], "detected": True, "severity": 0.8} for f in res["explanations"]],
+        explanation=" | ".join([f"{f['feature']}: {f['reason']}" for f in res["explanations"]]) or "No specific phishing indicators detected."
     )
 
 if __name__ == "__main__":

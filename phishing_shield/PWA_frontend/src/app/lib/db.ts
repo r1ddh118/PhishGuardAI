@@ -22,6 +22,11 @@ export interface ScanRecord {
   confidence: number;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   triggeredFeatures: string[];
+  explainability?: {
+    explanations?: Array<{ feature?: string; value?: number; reason?: string; contribution_percent?: number }>;
+    highlighted_lines?: Array<{ line_number: number; line: string; indicators: string[] }>;
+    class_percentages?: Record<string, number>;
+  };
   operatorDecision?: 'incident' | 'false-positive' | 'pending';
   operator?: string;
 }

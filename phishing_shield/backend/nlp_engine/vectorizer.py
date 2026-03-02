@@ -6,11 +6,11 @@ from sklearn.preprocessing import StandardScaler
 from scipy.sparse import csr_matrix, hstack
 
 # relative imports inside backend.nlp_engine
-from backend.nlp_engine.preprocess import clean_text
-from backend.nlp_engine.url_analyzer import url_features, analyze_urls
-from backend.nlp_engine.urgency_detector import urgency_score
-from backend.nlp_engine.impersonation_detector import impersonation_score
-from backend.nlp_engine.credential_detector import credential_request_score
+from .preprocess import clean_text
+from .url_analyzer import analyze_urls
+from .urgency_detector import urgency_score
+from .impersonation_detector import impersonation_score
+from .credential_detector import credential_request_score
 
 
 def _tokenize_no_clean(text: str):

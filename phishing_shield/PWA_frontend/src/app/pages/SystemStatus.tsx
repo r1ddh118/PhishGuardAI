@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { 
-  CheckCircle, 
+import {
+  CheckCircle,
   AlertCircle,
   RefreshCw,
   Download,
@@ -10,13 +10,13 @@ import {
   Clock,
   Shield,
   Wifi,
-  WifiOff
+  WifiOff,
 } from 'lucide-react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
-import { MODEL_INFO } from '../lib/ai-engine';
+import { MODEL_INFO, checkForUpdates } from '../lib/ai-engine';
 import { getAllScans } from '../lib/db';
 import { toast } from 'sonner';
 
@@ -25,6 +25,9 @@ export function SystemStatus() {
   const [dbSize, setDbSize] = useState(0);
   const [scanCount, setScanCount] = useState(0);
   const [checking, setChecking] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string>(MODEL_INFO.lastUpdate);
+  const [backendVersion, setBackendVersion] = useState<string>(MODEL_INFO.version);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -45,38 +48,44 @@ export function SystemStatus() {
     try {
       const scans = await getAllScans();
       setScanCount(scans.length);
-      
+
       // Estimate database size
-      const estimatedSize = scans.reduce((acc, scan) => 
-        acc + scan.content.length + 200, 0
-      ) / 1024; // Convert to KB
+      const estimatedSize =
+        scans.reduce((acc, scan) => acc + scan.content.length + 200, 0) / 1024; // Convert to KB
       setDbSize(estimatedSize);
     } catch (error) {
       console.error('Failed to load system info');
     }
   };
 
-  const handleCheckUpdates = () => {
+  const handleCheckUpdates = async () => {
     setChecking(true);
-    setTimeout(() => {
-      setChecking(false);
-      if (isOnline) {
-        toast.success('System is up to date');
-      } else {
-        toast.error('Cannot check for updates while offline');
+    try {
+      const status = await checkForUpdates();
+      setBackendVersion(status.model_version || MODEL_INFO.version);
+      if (status.last_updated) {
+        setLastUpdatedAt(status.last_updated);
       }
-    }, 2000);
+      setLastCheckedAt(new Date());
+      if (status.status === 'offline-fallback') {
+        toast.info('Using offline update metadata (backend unavailable)');
+      } else {
+        toast.success('System is up to date');
+      }
+    } finally {
+      setChecking(false);
+    }
   };
 
-  const handleApplyUpdate = () => {
-    toast.info('No updates available');
+  const handleApplyUpdate = async () => {
+    await handleCheckUpdates();
   };
 
   const systemHealth = [
     {
       name: 'AI Model',
       status: 'operational',
-      version: MODEL_INFO.version,
+      version: backendVersion,
       icon: Cpu,
     },
     {
@@ -105,9 +114,7 @@ export function SystemStatus() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-semibold mb-2">System Status & Updates</h1>
-          <p className="text-sm text-zinc-500">
-            Monitor system health and manage updates
-          </p>
+          <p className="text-sm text-zinc-500">Monitor system health and manage updates</p>
         </div>
 
         {/* Connection Status */}
@@ -124,20 +131,18 @@ export function SystemStatus() {
                 </div>
               )}
               <div>
-                <h3 className="text-lg font-semibold mb-1">
-                  {isOnline ? 'System Online' : 'Offline Mode'}
-                </h3>
+                <h3 className="text-lg font-semibold mb-1">{isOnline ? 'System Online' : 'Offline Mode'}</h3>
                 <p className="text-sm text-zinc-500">
-                  {isOnline 
-                    ? 'Connected to network. Updates available.' 
+                  {isOnline
+                    ? 'Connected to network. Updates available.'
                     : 'Operating in offline mode. All features functional.'}
                 </p>
               </div>
             </div>
-            <Badge 
+            <Badge
               className={`${
-                isOnline 
-                  ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                isOnline
+                  ? 'bg-green-500/10 text-green-500 border-green-500/20'
                   : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
               } border px-4 py-2`}
             >
@@ -177,23 +182,23 @@ export function SystemStatus() {
           </div>
         </div>
 
+        {/* Metrics Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Model Information */}
           <Card className="p-6 bg-zinc-900 border-zinc-800">
             <h3 className="text-sm font-semibold mb-4 text-zinc-400 uppercase tracking-wider">
-              AI Model Information
+              Model Information
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex justify-between items-center py-2 border-b border-zinc-800">
-                <span className="text-sm text-zinc-400">Model Version</span>
-                <span className="text-sm font-medium">{MODEL_INFO.version}</span>
+                <span className="text-sm text-zinc-400">Version</span>
+                <span className="text-sm font-medium">{backendVersion}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-zinc-800">
                 <span className="text-sm text-zinc-400">Rule Set</span>
                 <span className="text-sm font-medium">{MODEL_INFO.ruleSetVersion}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-zinc-800">
-                <span className="text-sm text-zinc-400">Total Features</span>
+                <span className="text-sm text-zinc-400">Feature Count</span>
                 <span className="text-sm font-medium">{MODEL_INFO.totalFeatures}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-zinc-800">
@@ -204,9 +209,7 @@ export function SystemStatus() {
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-sm text-zinc-400">Last Updated</span>
-                <span className="text-sm font-medium">
-                  {new Date(MODEL_INFO.lastUpdate).toLocaleDateString()}
-                </span>
+                <span className="text-sm font-medium">{new Date(lastUpdatedAt).toLocaleDateString()}</span>
               </div>
             </div>
           </Card>
@@ -232,9 +235,7 @@ export function SystemStatus() {
               <div className="py-2">
                 <div className="flex justify-between mb-2">
                   <span className="text-sm text-zinc-400">Storage Used</span>
-                  <span className="text-xs text-zinc-500">
-                    {((dbSize / 10240) * 100).toFixed(1)}% of 10 MB
-                  </span>
+                  <span className="text-xs text-zinc-500">{((dbSize / 10240) * 100).toFixed(1)}% of 10 MB</span>
                 </div>
                 <Progress value={(dbSize / 10240) * 100} className="h-2 bg-zinc-800" />
               </div>
@@ -250,20 +251,21 @@ export function SystemStatus() {
                 System Updates
               </h3>
               <p className="text-sm text-zinc-500">
-                {isOnline 
-                  ? 'Check for and apply security updates' 
-                  : 'Updates require network connection'}
+                {isOnline
+                  ? 'Check for and apply security updates'
+                  : 'Offline fallback metadata will be used when backend is unreachable'}
               </p>
+              {lastCheckedAt && (
+                <p className="text-xs text-zinc-500 mt-1">
+                  Last check: {lastCheckedAt.toLocaleTimeString()}
+                </p>
+              )}
             </div>
             <Clock className="w-5 h-5 text-zinc-600" />
           </div>
 
           <div className="flex gap-3">
-            <Button
-              onClick={handleCheckUpdates}
-              disabled={checking}
-              className="bg-red-600 hover:bg-red-700"
-            >
+            <Button onClick={handleCheckUpdates} disabled={checking} className="bg-red-600 hover:bg-red-700">
               {checking ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -279,7 +281,7 @@ export function SystemStatus() {
             <Button
               onClick={handleApplyUpdate}
               variant="outline"
-              disabled={!isOnline}
+              disabled={checking}
               className="border-zinc-700"
             >
               <Download className="w-4 h-4 mr-2" />
@@ -293,8 +295,8 @@ export function SystemStatus() {
               <div>
                 <p className="text-sm text-yellow-500 font-medium">Offline Mode Active</p>
                 <p className="text-xs text-zinc-400 mt-1">
-                  System will automatically check for updates when connection is restored.
-                  All core functions remain operational offline.
+                  Local model metadata remains available even without backend connectivity. All core
+                  functions continue operating offline.
                 </p>
               </div>
             </div>
@@ -308,9 +310,7 @@ export function SystemStatus() {
               <Shield className="w-5 h-5 text-green-500" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-                System Integrity
-              </h3>
+              <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">System Integrity</h3>
               <p className="text-xs text-zinc-500 mt-0.5">All security checks passed</p>
             </div>
           </div>
