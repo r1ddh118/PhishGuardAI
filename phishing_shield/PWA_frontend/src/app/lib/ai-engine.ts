@@ -1,4 +1,5 @@
 // Batch scan API integration
+const API_BASE = "http://127.0.0.1:8000";
 
 export interface BatchScanResult {
   batch_results: Array<{
@@ -21,6 +22,18 @@ export async function analyzeBatch(messages: string[]): Promise<BatchScanResult>
 }
 // AI Inference Engine for Phishing Detection
 // Calls FastAPI backend, falls back to mock if offline or error
+
+export interface InferenceResult {
+  prediction: 'safe' | 'suspicious' | 'phishing';
+  confidence: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  triggeredFeatures: {
+    name: string;
+    detected: boolean;
+    severity: number;
+  }[];
+  explanation: string;
+}
 
 const PHISHING_PATTERNS = {
   urgency: [
@@ -151,18 +164,7 @@ explanation: (data.explanations || [])
   .map((ex: any) => ex.reason)
   .join("; ")
     };
-  } catch (err) {
-    // Fallback to mock if offline or error
-    // Simulate processing delay for realistic UX
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const features = analyzeContent(content);
-    const detectedFeatures = features.filter(f => f.detected);
-    let riskScore = 0;
-    features.forEach(f => {
-      if (f.detected) {
-        riskScore += f.severity;
-      }
-    });
+  } 
     const normalizedScore = Math.min(riskScore / 3, 1);
     let prediction: InferenceResult['prediction'];
     let riskLevel: InferenceResult['riskLevel'];
