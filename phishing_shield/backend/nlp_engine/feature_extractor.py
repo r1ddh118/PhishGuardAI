@@ -23,7 +23,10 @@ EXPLAINABILITY_MAP = {
 def _build_explanations(features: Dict[str, Any]):
     reasons = []
     for key, message in EXPLAINABILITY_MAP.items():
-        if features.get(key, 0) > 0:
+        val = features.get(key, 0)
+        if val > 0:
+            if key == 'digit_count' and val <= 5:
+                continue
             reasons.append({
                 'feature': key,
                 'value': features.get(key),

@@ -117,58 +117,38 @@ function analyzeContent(text: string): InferenceResult['triggeredFeatures'] {
 }
 
 export async function analyzeMessage(content: string): Promise<InferenceResult> {
-  // Simulate processing delay for realistic UX
-  await new Promise(resolve => setTimeout(resolve, 800));
+  const API_URL = 'http://localhost:8000/predict';
 
-  const features = analyzeContent(content);
-  const detectedFeatures = features.filter(f => f.detected);
-  
-  // Calculate risk score
-  let riskScore = 0;
-  features.forEach(f => {
-    if (f.detected) {
-      riskScore += f.severity;
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: content,
+        subject: '', // Optional
+        sender: ''   // Optional
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
-  });
 
-  const normalizedScore = Math.min(riskScore / 3, 1);
-
-  // Determine prediction
-  let prediction: InferenceResult['prediction'];
-  let riskLevel: InferenceResult['riskLevel'];
-  let confidence: number;
-
-  if (normalizedScore < 0.3) {
-    prediction = 'safe';
-    riskLevel = 'low';
-    confidence = 0.85 + Math.random() * 0.1;
-  } else if (normalizedScore < 0.6) {
-    prediction = 'suspicious';
-    riskLevel = detectedFeatures.length > 2 ? 'medium' : 'low';
-    confidence = 0.7 + Math.random() * 0.15;
-  } else {
-    prediction = 'phishing';
-    riskLevel = detectedFeatures.length > 3 ? 'critical' : 'high';
-    confidence = 0.8 + Math.random() * 0.15;
+    const data = await response.json() as InferenceResult;
+    return data;
+  } catch (error) {
+    console.error('Phishing API Error:', error);
+    // Fallback to minimal risk result if API fails
+    return {
+      prediction: 'safe',
+      confidence: 0,
+      riskLevel: 'low',
+      triggeredFeatures: [],
+      explanation: 'Unable to reach detection server. Please check your connection.',
+    };
   }
-
-  // Generate explanation
-  let explanation = '';
-  if (prediction === 'safe') {
-    explanation = 'No significant phishing indicators detected. Message appears legitimate.';
-  } else if (prediction === 'suspicious') {
-    explanation = `Detected ${detectedFeatures.length} suspicious indicator(s): ${detectedFeatures.map(f => f.name).join(', ')}. Exercise caution.`;
-  } else {
-    explanation = `High-confidence phishing attempt. Multiple red flags detected: ${detectedFeatures.map(f => f.name).join(', ')}. Do not interact.`;
-  }
-
-  return {
-    prediction,
-    confidence: Math.min(confidence, 0.99),
-    riskLevel,
-    triggeredFeatures: features,
-    explanation,
-  };
 }
 
 // Model metadata

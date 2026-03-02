@@ -31,29 +31,28 @@ def load_data():
         raise FileNotFoundError(f"Feature files not found in {DATA_DIR}. Run generate_features.py first.")
     
     print("Loading features...")
-    df = pd.read_csv(FEATURE_CSV)
+    df = pd.read_csv(FEATURE_CSV, low_memory=False)
     X = sparse.load_npz(FEATURE_NPZ)
+    
+    print(f"Loaded {X.shape[1]} features from {FEATURE_NPZ.name}")
     
     # Extract labels
     def map_label(val):
         if pd.isna(val):
             return np.nan
         s = str(val).strip().lower()
-        if s in ('phishing', 'phish', '1', '1.0'):
+        if s in ('phishing', 'phish', '1', '1.0', '1'):
             return 1
-        if s in ('legitimate', 'legit', 'safe', '0', '0.0'):
+        if s in ('legitimate', 'legit', 'safe', '0', '0.0', '0'):
             return 0
         return np.nan
 
-    y = df['label'].apply(map_label)
+    y = df['label'].apply(map_label).values
     
-    # Drop rows with unknown labels if any (though generate_features should handle this, maybe)
-    # Actually generate_features.py might produce None labels if not normalized.
-    # Let's check for NaNs in y
-    mask = y.notna()
-    if not mask.all():
-        print(f"Dropping {len(y) - mask.sum()} rows with missing labels")
-        y = y[mask]
+    mask = ~np.isnan(y)
+    if not np.all(mask):
+        print(f"Dropping {len(y) - np.sum(mask)} rows with missing/invalid labels")
+        y = y[mask].astype(int)
         X = X[mask]
     
     return X, y
@@ -167,7 +166,7 @@ def main():
     
     # 4. Save Model
     joblib.dump(final_model, MODEL_PATH)
-    print(f"\nModel saved to {MODEL_PATH}")
+    print(f"\nModel and metadata saved to {MODEL_DIR}")
     
     # 5. Inference Speed Test
     print("\nTesting inference speed...")
