@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -93,6 +93,15 @@ def check_updates():
         "model_version": "2.4.0",
         "last_updated": "2026-03-02T14:00:00Z"
     }
+
+# Serve favicon to avoid 404 noise in logs; return a tiny inline SVG when not present
+@app.get("/favicon.ico")
+def favicon():
+    fav = FRONTEND_DIST / "favicon.ico"
+    if fav.is_file():
+        return FileResponse(fav)
+    svg = """<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>\n<rect width='16' height='16' fill='#ef4444'/>\n<text x='8' y='11' font-size='10' text-anchor='middle' fill='white' font-family='Arial'>P</text>\n</svg>"""
+    return Response(content=svg, media_type='image/svg+xml')
 
 def perform_prediction(content: str):
     # 1. Extract features for explainability
