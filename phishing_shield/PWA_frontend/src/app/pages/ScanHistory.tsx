@@ -7,7 +7,7 @@ import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { getAllScans, exportScansToCSV, deleteScan } from '../lib/db';
+import { getAllScans, exportScansToCSV, deleteScan, saveScan } from '../lib/db';
 import type { ScanRecord } from '../lib/db';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -106,6 +106,14 @@ export function ScanHistory() {
       const [local, remote] = await Promise.allSettled([getAllScans(), loadApiHistory()]);
       const localScans = local.status === 'fulfilled' ? local.value : [];
       const remoteScans = remote.status === 'fulfilled' ? remote.value : [];
+
+      // Save remote scans to IndexedDB
+      if (remote.status === 'fulfilled') {
+        for (const scan of remote.value) {
+          await saveScan(scan);
+        }
+      }
+
       setBackendReachable(remote.status === 'fulfilled');
 
       if (local.status === 'rejected' && remote.status === 'rejected' && !silent) {
