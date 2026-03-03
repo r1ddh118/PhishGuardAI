@@ -54,11 +54,18 @@ phishing_shield/
    ```
 
 ## API Endpoints
-- `POST /scan`         : Analyze a single message
-- `POST /batch-scan`   : Analyze multiple messages
-- `GET /health`        : API/model/vectorizer/database status
-- `POST /credentials`  : Store credential profile (Google/email account supported; password hashed)
-- `GET /credentials`   : List stored credential profiles
+
+The following API endpoints are available in the PhishGuard AI backend:
+
+- **GET /health**: Perform a health check of the backend server.
+- **GET /history**: Retrieve the scan history of analyzed messages.
+- **GET /updates/check**: Check for available updates for the system.
+- **POST /scan**: Perform a single scan for phishing detection.
+- **POST /batch-scan**: Perform batch scanning for multiple messages.
+- **GET /credentials**: Retrieve a list of stored credentials.
+- **POST /credentials**: Add new credentials to the system.
+
+These endpoints are designed to support the functionality of the PhishGuard AI platform, enabling seamless integration and interaction between the frontend and backend.
 
 ## Security & Best Practices
 - Sensitive data never leaves the device during scan
