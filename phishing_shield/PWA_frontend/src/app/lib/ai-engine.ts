@@ -138,14 +138,25 @@ function buildFallbackExplainability(
   };
 }
 
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeConfidence(confidence: number): number {
+  const parsed = toFiniteNumber(confidence, 0.5);
+  const asProbability = parsed > 1 && parsed <= 100 ? parsed / 100 : parsed;
+  return Math.min(Math.max(asProbability, 0), 1);
+}
+
 function normalizeExplainability(base: Partial<ExplainabilityPayload> | undefined): ExplainabilityPayload {
   return {
     explanations: Array.isArray(base?.explanations) ? base.explanations : [],
     highlighted_lines: Array.isArray(base?.highlighted_lines) ? base.highlighted_lines : [],
     class_percentages: {
-      safe: Number(base?.class_percentages?.safe ?? 0),
-      suspicious: Number(base?.class_percentages?.suspicious ?? 0),
-      phishing: Number(base?.class_percentages?.phishing ?? 0),
+      safe: toFiniteNumber(base?.class_percentages?.safe, 0),
+      suspicious: toFiniteNumber(base?.class_percentages?.suspicious, 0),
+      phishing: toFiniteNumber(base?.class_percentages?.phishing, 0),
     },
   };
 }
@@ -155,6 +166,7 @@ export function ensureExplainability(
   confidence: number,
   explainability?: Partial<ExplainabilityPayload>,
 ): ExplainabilityPayload {
+  const normalizedConfidence = normalizeConfidence(confidence);
   const normalized = normalizeExplainability(explainability);
   const hasData =
     normalized.explanations.length > 0 ||
@@ -162,7 +174,7 @@ export function ensureExplainability(
     Object.values(normalized.class_percentages).some((value) => Number(value) > 0);
 
   if (hasData) return normalized;
-  return buildFallbackExplainability(content, analyzeContent(content), confidence);
+  return buildFallbackExplainability(content, analyzeContent(content), normalizedConfidence);
 }
 
 export async function analyzeMessage(content: string): Promise<InferenceResult> {
