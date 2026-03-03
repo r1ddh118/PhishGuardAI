@@ -7,7 +7,7 @@ import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { getAllScans, exportScansToCSV, deleteScan } from '../lib/db';
+import { getAllScans, exportScansToCSV, deleteScan, saveScan } from '../lib/db';
 import type { ScanRecord } from '../lib/db';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -106,15 +106,28 @@ export function ScanHistory() {
       const [local, remote] = await Promise.allSettled([getAllScans(), loadApiHistory()]);
       const localScans = local.status === 'fulfilled' ? local.value : [];
       const remoteScans = remote.status === 'fulfilled' ? remote.value : [];
+
+      // Save remote scans to IndexedDB
+      if (remote.status === 'fulfilled') {
+        for (const scan of remote.value) {
+          await saveScan(scan);
+        }
+      }
+
       setBackendReachable(remote.status === 'fulfilled');
 
       if (local.status === 'rejected' && remote.status === 'rejected' && !silent) {
         toast.error('Failed to load scan history');
       }
 
-      const merged = [...localScans, ...remoteScans].sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-      );
+      const merged = [...localScans, ...remoteScans]
+        .reduce((acc, scan) => {
+          if (!acc.some(s => s.id === scan.id)) {
+            acc.push(scan);
+          }
+          return acc;
+        }, [] as ScanRecord[])
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setScans(merged);
     } finally {
       setLoading(false);
@@ -242,16 +255,20 @@ export function ScanHistory() {
               </div>
             </div>
 
-            <Select value={verdictFilter} onValueChange={setVerdictFilter}>
-              <SelectTrigger className="bg-zinc-950 border-zinc-700">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Verdict" />
+            <Select
+              value={verdictFilter}
+              onValueChange={setVerdictFilter}
+              className="w-full max-w-xs rounded-md bg-zinc-950 text-zinc-100 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-lg"
+            >
+              <SelectTrigger className="flex items-center justify-between px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-md transition duration-200 ease-in-out border-none">
+                <Filter className="w-5 h-5 text-zinc-300 dark:text-white mr-2" />
+                <SelectValue placeholder="Select Verdict" className="text-zinc-100 dark:text-white" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Verdicts</SelectItem>
-                <SelectItem value="safe">Safe</SelectItem>
-                <SelectItem value="suspicious">Suspicious</SelectItem>
-                <SelectItem value="phishing">Phishing</SelectItem>
+              <SelectContent className="bg-zinc-900 dark:bg-zinc-800 rounded-md shadow-md border-none">
+                <SelectItem value="all" className="hover:bg-zinc-800 px-4 py-2 text-zinc-100 dark:text-white transition duration-200 ease-in-out">All Verdicts</SelectItem>
+                <SelectItem value="safe" className="hover:bg-zinc-800 px-4 py-2 text-zinc-100 dark:text-white transition duration-200 ease-in-out">Safe</SelectItem>
+                <SelectItem value="suspicious" className="hover:bg-zinc-800 px-4 py-2 text-zinc-100 dark:text-white transition duration-200 ease-in-out">Suspicious</SelectItem>
+                <SelectItem value="phishing" className="hover:bg-zinc-800 px-4 py-2 text-zinc-100 dark:text-white transition duration-200 ease-in-out">Phishing</SelectItem>
               </SelectContent>
             </Select>
           </div>

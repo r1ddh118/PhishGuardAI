@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
@@ -23,6 +25,8 @@ app.add_middleware(
 )
 
 ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = ROOT.parent
+FRONTEND_DIST = PROJECT_ROOT / "PWA_frontend" / "dist"
 MODEL_PATH = ROOT / "model" / "model.joblib"
 VECTORIZER_PATH = ROOT / "model" / "vectorizer.joblib"
 
@@ -59,9 +63,43 @@ class ScanRequest(BaseModel):
 class BatchScanRequest(BaseModel):
     texts: list[str]
 
-@app.get("/")
-def read_root():
-    return {"status": "online", "model_version": "2.4.0"}
+@app.get("/health")
+def read_health():
+    return {
+        "status": "online",
+        "model_version": "2.4.0",
+        "frontend_dist_found": FRONTEND_DIST.exists(),
+    }
+
+
+if FRONTEND_DIST.exists():
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+
+    @app.get("/")
+    def serve_index():
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str):
+        if full_path.startswith(("scan", "batch-scan", "predict", "updates", "health", "docs", "redoc", "openapi")):
+            raise HTTPException(status_code=404, detail="Not found")
+
+        candidate = FRONTEND_DIST / full_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIST / "index.html")
+else:
+    @app.get("/")
+    def read_root():
+        return JSONResponse(
+            {
+                "status": "online",
+                "model_version": "2.4.0",
+                "message": "Frontend build not found. Run `npm run build` in phishing_shield/PWA_frontend.",
+            }
+        )
 
 @app.get("/updates/check")
 def check_updates():

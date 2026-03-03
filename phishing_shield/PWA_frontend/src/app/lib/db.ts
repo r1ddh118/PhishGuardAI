@@ -54,7 +54,12 @@ export async function getDB(): Promise<IDBPDatabase<PhishingDB>> {
 
 export async function saveScan(scan: ScanRecord): Promise<void> {
   const db = await getDB();
-  await db.add('scans', scan);
+  const existingScan = await db.get('scans', scan.id);
+  if (existingScan) {
+    await db.put('scans', scan);
+  } else {
+    await db.add('scans', scan);
+  }
 }
 
 export async function getAllScans(): Promise<ScanRecord[]> {
