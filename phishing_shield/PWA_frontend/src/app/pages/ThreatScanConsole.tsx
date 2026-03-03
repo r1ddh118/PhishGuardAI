@@ -121,6 +121,7 @@ const handleDownloadReport = () => {
     triggeredFeatures: result.triggeredFeatures
       .filter(f => f.detected)
       .map(f => f.name),
+    explainability: result.explainability,
     timestamp: new Date(),
   };
 
@@ -154,6 +155,7 @@ const handleSaveToLog = async () => {
       triggeredFeatures: result.triggeredFeatures
         .filter(f => f.detected)
         .map(f => f.name),
+      explainability: result.explainability,
       operatorDecision: 'pending',
     });
     toast.success('Scan saved to history');
@@ -178,6 +180,7 @@ const handleMarkIncident = async () => {
       triggeredFeatures: result.triggeredFeatures
         .filter(f => f.detected)
         .map(f => f.name),
+      explainability: result.explainability,
       operatorDecision: 'incident',
     });
     toast.success('Marked as security incident');
@@ -563,8 +566,8 @@ const getRiskConfig = (risk: string) => {
                       <div key={idx} className="p-3 rounded border bg-zinc-900 border-zinc-800 flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs text-zinc-400 flex-1 truncate">{res.text_preview}</span>
-                          <Badge className={res.is_phishing ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}>
-                            {res.is_phishing ? 'Phishing' : 'Safe'}
+                          <Badge className={`${res.risk_level === 'High' ? 'bg-red-500 text-white' : res.risk_level === 'Medium' ? 'bg-yellow-500 text-black' : 'bg-green-500 text-white'}`}>
+                            {res.risk_level === 'High' ? 'Phishing' : res.risk_level === 'Medium' ? 'Suspicious' : 'Safe'}
                           </Badge>
                           <span className="text-xs text-zinc-400 ml-2">{(res.confidence * 100).toFixed(1)}%</span>
                           <Badge className={`ml-2 ${res.risk_level === 'High' ? 'bg-red-500' : res.risk_level === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'} text-white`}>

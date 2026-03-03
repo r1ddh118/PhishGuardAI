@@ -30,6 +30,9 @@ VECTORIZER_PATH = ROOT / "model" / "vectorizer.joblib"
 model = None
 vectorizer = None
 
+LOW_RISK_THRESHOLD = 0.35
+HIGH_RISK_THRESHOLD = 0.7
+
 def load_model():
     global model, vectorizer
     if not MODEL_PATH.exists() or not VECTORIZER_PATH.exists():
@@ -116,39 +119,62 @@ def perform_prediction(content: str):
     # 3. Predict
     probabilities = list(model.predict_proba(X)[0])
     phishing_prob = float(probabilities[1])
-    
-    # 4. Initial Verdict
-    if phishing_prob < 0.3:
-        prediction = "safe"
-        risk_level = "Low"
-    elif phishing_prob < 0.8:
-        prediction = "suspicious"
+
+    # 4. Hybrid verdict from model probability + explainable indicators
+    rule_score = (
+        int(features_dict.get("suspicious_url_score", 0)) * 2
+        + int(features_dict.get("credential_request_score", 0)) * 3
+        + int(features_dict.get("impersonation_score", 0)) * 2
+        + int(features_dict.get("urgency_score", 0))
+        + (4 if int(features_dict.get("ip_url_count", 0)) > 0 else 0)
+        + (2 if int(features_dict.get("shortener_url_count", 0)) > 0 else 0)
+        + (4 if int(features_dict.get("lookalike_domain_count", 0)) > 0 else 0)
+    )
+    hybrid_score = (phishing_prob * 0.7) + (min(rule_score, 20) / 20.0 * 0.3)
+
+    if features_dict.get("suspicious_url_score", 0) >= 4:
+        risk_level = "High"
+    elif features_dict.get("urgency_score", 0) > 0 and features_dict.get("impersonation_score", 0) > 0:
+        risk_level = "High"
+    elif hybrid_score >= HIGH_RISK_THRESHOLD:
+        risk_level = "High"
+    elif hybrid_score >= LOW_RISK_THRESHOLD:
         risk_level = "Medium"
     else:
-        prediction = "phishing"
-        risk_level = "High"
-        if phishing_prob > 0.95:
-            risk_level = "Critical"
+        risk_level = "Low"
 
-    # --- SAFETY SHIELD HEURISTIC ---
-    is_short = features_dict.get("length", 0) < 100
-    has_no_urls = features_dict.get("url_count", 0) == 0
-    has_no_urgency = features_dict.get("urgency_score", 0) == 0
-    has_low_impersonation = features_dict.get("impersonation_score", 0) < 2
-    has_no_credentials = features_dict.get("credential_request_score", 0) == 0
-    
-    if is_short and has_no_urls and has_no_urgency and has_low_impersonation and has_no_credentials:
-        if risk_level in ["Medium", "High", "Critical"]:
-            print(f"Safety Shield Triggered: Downgrading {risk_level} to Low.")
-            risk_level = "Low"
-            prediction = "safe"
-            if phishing_prob > 0.5:
-                phishing_prob = 1.0 - phishing_prob
+    if risk_level == "High" and phishing_prob >= 0.95:
+        risk_level = "Critical"
+
+    if risk_level in ["High", "Critical"]:
+        prediction = "phishing"
+    elif risk_level == "Medium":
+        prediction = "suspicious"
+    else:
+        prediction = "safe"
+
+    if not features_dict.get("explanations"):
+        features_dict["explanations"] = [
+            {
+                "feature": "model_score",
+                "value": round(phishing_prob, 4),
+                "reason": "Model probability was used to classify this message.",
+                "contribution_percent": 100.0,
+            }
+        ]
+
+    class_percentages = {
+        "phishing": round(max(0.0, min(100.0, phishing_prob * 100.0)), 2),
+        "suspicious": round(max(0.0, min(100.0, hybrid_score * 100.0 - phishing_prob * 40.0)), 2),
+    }
+    class_percentages["safe"] = round(max(0.0, 100.0 - class_percentages["phishing"] - class_percentages["suspicious"]), 2)
 
     return {
-        "is_phishing": prediction == "phishing",
-        "confidence": float(max(probabilities) if prediction != "safe" else (1.0 - phishing_prob)),
+        "is_phishing": risk_level in ["High", "Critical"],
+        "classification": prediction,
+        "confidence": round(float(phishing_prob), 4),
         "risk_level": risk_level,
+        "class_percentages": class_percentages,
         "explanations": features_dict.get("explanations", []),
         "highlighted_lines": features_dict.get("highlighted_lines", [])
     }
@@ -176,7 +202,7 @@ async def batch_scan(request: BatchScanRequest):
 async def predict(request: PredictRequest):
     # Backward compatibility for old frontend
     res = perform_prediction(request.content)
-    prediction = "phishing" if res["is_phishing"] else ("suspicious" if res["risk_level"] == "Medium" else "safe")
+    prediction = res.get("classification", "phishing" if res["is_phishing"] else ("suspicious" if res["risk_level"] == "Medium" else "safe"))
     
     return PredictResponse(
         prediction=prediction,

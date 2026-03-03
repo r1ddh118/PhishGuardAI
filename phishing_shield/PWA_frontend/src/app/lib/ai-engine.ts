@@ -34,6 +34,11 @@ export interface InferenceResult {
     severity: number;
   }[];
   explanation: string;
+  explainability?: {
+    explanations: Array<{ feature?: string; value?: number; reason?: string; contribution_percent?: number }>;
+    highlighted_lines: Array<{ line_number: number; line: string; indicators: string[] }>;
+    class_percentages: Record<string, number>;
+  };
 }
 
 const PHISHING_PATTERNS = {
@@ -89,7 +94,7 @@ export async function analyzeMessage(content: string): Promise<InferenceResult> 
 
     // Map backend response to frontend InferenceResult
     return {
-      prediction: data.is_phishing ? "phishing" : (data.risk_level === "Medium" ? "suspicious" : "safe"),
+      prediction: (data.classification || (data.is_phishing ? "phishing" : (data.risk_level === "Medium" ? "suspicious" : "safe"))) as InferenceResult["prediction"],
       confidence: data.confidence,
       riskLevel: data.risk_level.toLowerCase() as InferenceResult["riskLevel"],
       triggeredFeatures: (data.explanations || []).map((ex: any) => ({
@@ -99,7 +104,12 @@ export async function analyzeMessage(content: string): Promise<InferenceResult> 
       })),
       explanation: (data.explanations || [])
         .map((ex: any) => ex.reason)
-        .join("; ")
+        .join("; ") || "No specific phishing indicators detected.",
+      explainability: {
+        explanations: data.explanations || [],
+        highlighted_lines: data.highlighted_lines || [],
+        class_percentages: data.class_percentages || {},
+      }
     };
   } catch (err) {
     console.warn("Falling back to mock inference due to:", err);
