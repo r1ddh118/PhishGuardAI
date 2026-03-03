@@ -313,7 +313,7 @@ const getRiskConfig = (risk: string) => {
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="Paste email content, SMS text, or message here..."
-                    className="min-h-[300px] bg-zinc-950 border-zinc-700 text-zinc-100 resize-none font-mono text-sm"
+                    className="min-h-[300px] bg-zinc-950 border-zinc-700 text-zinc-300 resize-none font-mono text-sm"
                     disabled={isScanning}
                   />
                 </>
