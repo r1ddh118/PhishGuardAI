@@ -40,6 +40,19 @@ const SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8 hours for shift work
 const DB_NAME = 'phishguard_auth';
 const USERS_STORE = 'users';
 
+function getCrypto(): Crypto | null {
+  return typeof globalThis !== 'undefined' && 'crypto' in globalThis ? globalThis.crypto : null;
+}
+
+function fallbackHash(input: string): string {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = ((hash << 5) + hash) ^ input.charCodeAt(i);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
 const dbPromise = openDB(DB_NAME, 1, {
   upgrade(db) {
     if (!db.objectStoreNames.contains(USERS_STORE)) {
@@ -51,11 +64,17 @@ const dbPromise = openDB(DB_NAME, 1, {
 });
 
 async function hashPassword(password: string): Promise<string> {
-  const data = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest))
-    .map(byte => byte.toString(16).padStart(2, '0'))
-    .join('');
+  const cryptoApi = getCrypto();
+
+  if (cryptoApi?.subtle?.digest) {
+    const data = new TextEncoder().encode(password);
+    const digest = await cryptoApi.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest))
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  return fallbackHash(password);
 }
 
 async function ensureUserStoreReady(): Promise<void> {
@@ -63,11 +82,17 @@ async function ensureUserStoreReady(): Promise<void> {
 }
 
 function generateUserId(): string {
-  if (typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
+  const cryptoApi = getCrypto();
+
+  if (typeof cryptoApi?.randomUUID === 'function') {
+    return cryptoApi.randomUUID();
   }
 
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  if (!cryptoApi?.getRandomValues) {
+    return `user-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+  }
+
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
