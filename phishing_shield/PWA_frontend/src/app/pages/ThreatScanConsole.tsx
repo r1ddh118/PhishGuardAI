@@ -21,6 +21,7 @@ import { analyzeMessage, analyzeBatch, BatchScanResult } from '../lib/ai-engine'
 import type { InferenceResult } from '../lib/ai-engine';
 import { saveScan } from '../lib/db';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 
 export default function ThreatScanConsole() {
 const [inputText, setInputText] = useState('');
@@ -72,16 +73,38 @@ const handleClear = () => {
 const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   if (file) {
+    if (!['text/plain', 'message/rfc822'].includes(file.type)) {
+      toast.error('Unsupported file type. Please upload a .txt or .eml file.');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
+      if (!text) {
+        toast.error('Failed to read the file. Please try again.');
+        return;
+      }
+
       if (batchMode) {
         // Split by lines, filter empty
-        setBatchInput(text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0));
+        const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+        if (lines.length === 0) {
+          toast.error('The file is empty or contains invalid data.');
+          return;
+        }
+        setBatchInput(lines);
       } else {
         setInputText(text);
       }
+
+      toast.success('File uploaded successfully.');
     };
+
+    reader.onerror = () => {
+      toast.error('An error occurred while reading the file.');
+    };
+
     reader.readAsText(file);
   }
 };
@@ -355,17 +378,26 @@ const getRiskConfig = (risk: string) => {
                   )}
                 </Button>
 
-                <label htmlFor="file-upload">
-                  <Button
-                    variant="outline"
-                    className="border-zinc-700"
-                    disabled={isScanning}
-                    asChild
-                  >
-                    <span>
-                      <Upload className="w-4 h-4" />
-                    </span>
-                  </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <label htmlFor="file-upload">
+                        <Button
+                          variant="outline"
+                          className="border-zinc-700"
+                          disabled={isScanning}
+                          asChild
+                        >
+                          <span>
+                            <Upload className="w-4 h-4" />
+                          </span>
+                        </Button>
+                      </label>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="bg-gray-800 text-white p-2 rounded shadow-md">
+                      <p className="text-sm">Only .txt and .eml files are allowed.</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <input
                     id="file-upload"
                     type="file"
@@ -374,7 +406,7 @@ const getRiskConfig = (risk: string) => {
                     onChange={handleFileUpload}
                     disabled={isScanning}
                   />
-                </label>
+                </TooltipProvider>
 
                 <Button
                   variant="outline"
@@ -400,7 +432,6 @@ const getRiskConfig = (risk: string) => {
                   </div>
                 </div>
               ) : (
-                // ...existing single scan result UI...
                 <div className="space-y-6">
                   {/* Verdict */}
                   <div>
