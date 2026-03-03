@@ -84,35 +84,6 @@ def read_health():
     }
 
 
-if FRONTEND_DIST.exists():
-    assets_dir = FRONTEND_DIST / "assets"
-    if assets_dir.exists():
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
-
-    @app.get("/")
-    def serve_index():
-        return FileResponse(FRONTEND_DIST / "index.html")
-
-    @app.get("/{full_path:path}")
-    def serve_frontend(full_path: str):
-        if full_path.startswith(("scan", "batch-scan", "predict", "updates", "health", "docs", "redoc", "openapi")):
-            raise HTTPException(status_code=404, detail="Not found")
-
-        candidate = FRONTEND_DIST / full_path
-        if candidate.is_file():
-            return FileResponse(candidate)
-        return FileResponse(FRONTEND_DIST / "index.html")
-else:
-    @app.get("/")
-    def read_root():
-        return JSONResponse(
-            {
-                "status": "online",
-                "model_version": "2.4.0",
-                "message": "Frontend build not found. Run `npm run build` in phishing_shield/PWA_frontend.",
-            }
-        )
-
 @app.get("/updates/check")
 def check_updates():
     return {
@@ -205,6 +176,32 @@ async def predict(request: PredictRequest):
         triggeredFeatures=[{"name": f["feature"], "detected": True, "severity": 0.8} for f in res["explanations"]],
         explanation=" | ".join([f"{f['feature']}: {f['reason']}" for f in res["explanations"]]) or "No specific phishing indicators detected."
     )
+
+if FRONTEND_DIST.exists():
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+
+    @app.get("/")
+    def serve_index():
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str):
+        candidate = FRONTEND_DIST / full_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIST / "index.html")
+else:
+    @app.get("/")
+    def read_root():
+        return JSONResponse(
+            {
+                "status": "online",
+                "model_version": "2.4.0",
+                "message": "Frontend build not found. Run `npm run build` in phishing_shield/PWA_frontend.",
+            }
+        )
 
 if __name__ == "__main__":
     import uvicorn
