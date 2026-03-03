@@ -5,6 +5,7 @@ import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { getAllScans } from '../lib/db';
+import { ensureExplainability } from '../lib/ai-engine';
 import type { ScanRecord } from '../lib/db';
 
 interface ApiHistoryRecord {
@@ -70,11 +71,11 @@ export function ExplainabilityDetails() {
               triggeredFeatures: item.explanations
                 .map((explanation) => explanation.feature || explanation.reason)
                 .filter((value): value is string => Boolean(value)),
-              explainability: {
+              explainability: ensureExplainability(item.text_preview, item.confidence, {
                 explanations: item.explanations,
                 highlighted_lines: item.highlighted_lines || [],
                 class_percentages: item.class_percentages || {},
-              },
+              }),
             }))
           : [];
 
@@ -89,14 +90,19 @@ export function ExplainabilityDetails() {
     void load();
   }, [scan, scanId]);
 
-  const hasData = useMemo(() => {
-    if (!scan) return false;
-    return Boolean(
-      (scan.explainability?.explanations?.length || 0) > 0 ||
-      (scan.explainability?.highlighted_lines?.length || 0) > 0 ||
-      Object.keys(scan.explainability?.class_percentages || {}).length > 0,
-    );
+  const normalizedExplainability = useMemo(() => {
+    if (!scan) return null;
+    return ensureExplainability(scan.content, scan.confidence, scan.explainability);
   }, [scan]);
+
+  const hasData = useMemo(() => {
+    if (!normalizedExplainability) return false;
+    return Boolean(
+      normalizedExplainability.explanations.length > 0 ||
+      normalizedExplainability.highlighted_lines.length > 0 ||
+      Object.values(normalizedExplainability.class_percentages).some((value) => Number(value) > 0),
+    );
+  }, [normalizedExplainability]);
 
   if (loading) {
     return <div className="p-8 text-zinc-500">Loading explainability details...</div>;
@@ -141,7 +147,7 @@ export function ExplainabilityDetails() {
         <Card className="p-5 bg-zinc-900 border-zinc-800">
           <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-400">Class probabilities</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {Object.entries(scan.explainability?.class_percentages || {}).map(([label, percent]) => (
+            {Object.entries(normalizedExplainability?.class_percentages || {}).map(([label, percent]) => (
               <div key={label} className="p-3 rounded border border-zinc-800 bg-zinc-950">
                 <p className="text-xs text-zinc-500 capitalize">{label}</p>
                 <p className="text-lg font-semibold">{Number(percent).toFixed(1)}%</p>
@@ -153,7 +159,7 @@ export function ExplainabilityDetails() {
         <Card className="p-5 bg-zinc-900 border-zinc-800">
           <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-400">Indicator explanations</h2>
           <div className="space-y-2">
-            {(scan.explainability?.explanations || []).map((item, idx) => (
+            {(normalizedExplainability?.explanations || []).map((item, idx) => (
               <div key={`${item.feature}-${idx}`} className="p-3 rounded border border-zinc-800 bg-zinc-950">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-zinc-200">{item.feature || 'Indicator'}</p>
@@ -162,7 +168,7 @@ export function ExplainabilityDetails() {
                 <p className="text-xs text-zinc-400 mt-1">{item.reason || 'No reason provided'}</p>
               </div>
             ))}
-            {(scan.explainability?.explanations || []).length === 0 && (
+            {(normalizedExplainability?.explanations || []).length === 0 && (
               <p className="text-sm text-zinc-500">No indicators were recorded.</p>
             )}
           </div>
@@ -170,9 +176,9 @@ export function ExplainabilityDetails() {
 
         <Card className="p-5 bg-zinc-900 border-zinc-800">
           <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-400">Highlighted suspicious lines</h2>
-          {(scan.explainability?.highlighted_lines || []).length > 0 ? (
+          {(normalizedExplainability?.highlighted_lines || []).length > 0 ? (
             <div className="space-y-2">
-              {(scan.explainability?.highlighted_lines || []).map((line) => (
+              {(normalizedExplainability?.highlighted_lines || []).map((line) => (
                 <div key={`${line.line_number}-${line.line}`} className="p-3 rounded border border-red-500/30 bg-red-500/5">
                   <p className="text-[11px] text-red-300 mb-1">Line {line.line_number} · {line.indicators.join(', ')}</p>
                   <p className="text-xs text-zinc-200 font-mono whitespace-pre-wrap">{line.line}</p>
