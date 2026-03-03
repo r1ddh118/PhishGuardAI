@@ -2,9 +2,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import joblib
 from pathlib import Path
+import os
+import socket
 import sys
 import numpy as np
 
@@ -14,15 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from backend.nlp_engine.vectorizer import EnhancedVectorizer
 from backend.nlp_engine.feature_extractor import extract_features
 
-app = FastAPI(title="Phishing Detection API")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = ROOT.parent
@@ -34,7 +30,6 @@ VECTORIZER_PATH = ROOT / "model" / "vectorizer.joblib"
 model = None
 vectorizer = None
 
-@app.on_event("startup")
 def load_model():
     global model, vectorizer
     if not MODEL_PATH.exists() or not VECTORIZER_PATH.exists():
@@ -44,6 +39,23 @@ def load_model():
     model = joblib.load(MODEL_PATH)
     vectorizer = EnhancedVectorizer().load(VECTORIZER_PATH)
     print("Model and vectorizer loaded successfully.")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    load_model()
+    yield
+
+app = FastAPI(title="Phishing Detection API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 class PredictRequest(BaseModel):
     content: str
@@ -196,4 +208,22 @@ async def predict(request: PredictRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    def resolve_port(default_port: int = 8000) -> int:
+        configured_port = int(os.environ.get("PORT", default_port))
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if sock.connect_ex(("127.0.0.1", configured_port)) != 0:
+                return configured_port
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            fallback_port = sock.getsockname()[1]
+
+        print(
+            f"Port {configured_port} is already in use. "
+            f"Starting server on available port {fallback_port} instead."
+        )
+        return fallback_port
+
+    uvicorn.run(app, host="0.0.0.0", port=resolve_port())
