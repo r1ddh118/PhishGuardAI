@@ -3,7 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
 from pathlib import Path
+import sys
 import numpy as np
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from backend.nlp_engine.vectorizer import EnhancedVectorizer
 from backend.nlp_engine.feature_extractor import extract_features
 

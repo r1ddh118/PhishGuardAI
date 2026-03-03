@@ -13,6 +13,9 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from backend.nlp_engine.vectorizer import EnhancedVectorizer
 
 # --- Constants ---
@@ -74,7 +77,7 @@ def train():
     y = df["label"].apply(map_label)
     mask = y.notnull()
     y = y[mask].astype(int)
-    X = X[mask]
+    X = X[mask.to_numpy()]
 
     print(f"Training on {X.shape[0]} samples with {X.shape[1]} features...")
 

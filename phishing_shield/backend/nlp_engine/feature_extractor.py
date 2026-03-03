@@ -1,11 +1,11 @@
 import re
 from typing import Any, Dict, List, Union
 
-from .credential_detector import CREDENTIAL_KEYWORDS, credential_request_score
-from .impersonation_detector import ORG_KEYWORDS, impersonation_score
-from .preprocess import clean_text, combine_subject_body, extract_email_addresses, extract_urls
-from .urgency_detector import URGENT_WORDS, urgency_score
-from .url_analyzer import analyze_urls, url_features
+from backend.nlp_engine.credential_detector import CREDENTIAL_KEYWORDS, credential_request_score
+from backend.nlp_engine.impersonation_detector import ORG_KEYWORDS, impersonation_score
+from backend.nlp_engine.preprocess import clean_text, combine_subject_body, extract_email_addresses, extract_urls
+from backend.nlp_engine.urgency_detector import URGENT_WORDS, urgency_score
+from backend.nlp_engine.url_analyzer import analyze_urls, url_features
 
 RISK_KEYWORDS = {
     "urgency": URGENT_WORDS,
