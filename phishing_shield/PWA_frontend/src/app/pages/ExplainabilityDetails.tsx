@@ -144,49 +144,49 @@ export function ExplainabilityDetails() {
           </Card>
         )}
 
-        <Card className="p-5 bg-zinc-900 border-zinc-800">
-          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-400">Class probabilities</h2>
+        <Card className="p-5 bg-zinc-900 border-zinc-800 text-zinc-100">
+          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-300">Class probabilities</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {Object.entries(normalizedExplainability?.class_percentages || {}).map(([label, percent]) => (
               <div key={label} className="p-3 rounded border border-zinc-800 bg-zinc-950">
-                <p className="text-xs text-zinc-500 capitalize">{label}</p>
-                <p className="text-lg font-semibold">{Number(percent).toFixed(1)}%</p>
+                <p className="text-xs text-zinc-300 capitalize">{label}</p>
+                <p className="text-lg font-semibold text-zinc-100">{Number(percent).toFixed(1)}%</p>
               </div>
             ))}
           </div>
         </Card>
 
-        <Card className="p-5 bg-zinc-900 border-zinc-800">
-          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-400">Indicator explanations</h2>
+        <Card className="p-5 bg-zinc-900 border-zinc-800 text-zinc-100">
+          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-300">Indicator explanations</h2>
           <div className="space-y-2">
             {(normalizedExplainability?.explanations || []).map((item, idx) => (
               <div key={`${item.feature}-${idx}`} className="p-3 rounded border border-zinc-800 bg-zinc-950">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-zinc-200">{item.feature || 'Indicator'}</p>
-                  <p className="text-xs text-zinc-400">Contribution {Number(item.contribution_percent || 0).toFixed(1)}%</p>
+                  <p className="text-sm text-zinc-100">{item.feature || 'Indicator'}</p>
+                  <p className="text-xs text-zinc-300">Contribution {Number(item.contribution_percent || 0).toFixed(1)}%</p>
                 </div>
-                <p className="text-xs text-zinc-400 mt-1">{item.reason || 'No reason provided'}</p>
+                <p className="text-xs text-zinc-200 mt-1">{item.reason || 'No reason provided'}</p>
               </div>
             ))}
             {(normalizedExplainability?.explanations || []).length === 0 && (
-              <p className="text-sm text-zinc-500">No indicators were recorded.</p>
+              <p className="text-sm text-zinc-300">No indicators were recorded.</p>
             )}
           </div>
         </Card>
 
-        <Card className="p-5 bg-zinc-900 border-zinc-800">
-          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-400">Highlighted suspicious lines</h2>
+        <Card className="p-5 bg-zinc-900 border-zinc-800 text-zinc-100">
+          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-zinc-300">Highlighted suspicious lines</h2>
           {(normalizedExplainability?.highlighted_lines || []).length > 0 ? (
             <div className="space-y-2">
               {(normalizedExplainability?.highlighted_lines || []).map((line) => (
                 <div key={`${line.line_number}-${line.line}`} className="p-3 rounded border border-red-500/30 bg-red-500/5">
-                  <p className="text-[11px] text-red-300 mb-1">Line {line.line_number} · {line.indicators.join(', ')}</p>
-                  <p className="text-xs text-zinc-200 font-mono whitespace-pre-wrap">{line.line}</p>
+                  <p className="text-[11px] text-red-200 mb-1">Line {line.line_number} · {line.indicators.join(', ')}</p>
+                  <p className="text-xs text-zinc-100 font-mono whitespace-pre-wrap">{line.line}</p>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-zinc-500 text-sm">
+            <div className="flex items-center gap-2 text-zinc-300 text-sm">
               <AlertTriangle className="w-4 h-4" />
               No specific lines were highlighted for this scan.
             </div>
