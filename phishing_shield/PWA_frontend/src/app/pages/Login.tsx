@@ -86,136 +86,132 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#02040a] p-4 text-zinc-100">
-      <div className="w-full max-w-xl">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-lg border border-zinc-700 mb-4">
-            <Lock className="w-8 h-8 text-zinc-100" />
-          </div>
-          <h1 className="text-5xl font-semibold mb-2 tracking-tight">PhishGuard AI</h1>
-          <p className="text-zinc-400 text-lg">Security Operations Console</p>
-          <div className="mt-3 inline-flex items-center gap-2 text-xs text-zinc-400 uppercase tracking-wider">
-            <Shield className="w-3 h-3" />
-            <span>Offline Mode • Secure</span>
-          </div>
-        </div>
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-navy-900 text-slate-100">
+      <header className="w-full py-6 px-12 border-b border-slate-700">
+        <h1 className="text-3xl font-medium tracking-wide text-slate-100">PhishGuard AI</h1>
+        <p className="text-slate-400 text-sm">Enterprise Security Dashboard</p>
+      </header>
 
-        <div className="bg-transparent border border-zinc-700 rounded-xl p-0 shadow-2xl overflow-hidden">
-          <div className="grid grid-cols-2 border-b border-zinc-700">
-            <button
-              type="button"
-              onClick={() => setAuthMode('login')}
-              className={`py-4 text-lg font-medium transition-colors ${
-                authMode === 'login' ? 'text-zinc-50 border-b-2 border-zinc-300' : 'text-zinc-500'
-              }`}
-            >
-              Login
-            </button>
-            <button
-              type="button"
-              onClick={() => setAuthMode('signup')}
-              className={`py-4 text-lg font-medium transition-colors ${
-                authMode === 'signup' ? 'text-zinc-50 border-b-2 border-zinc-300' : 'text-zinc-500'
-              }`}
-            >
-              Sign Up
-            </button>
+      <main className="flex-1 flex items-center justify-center px-12">
+        <div className="w-full max-w-5xl grid grid-cols-2 gap-12 items-center">
+          <div className="space-y-6">
+            <h2 className="text-4xl font-semibold text-slate-100">Welcome to PhishGuard AI</h2>
+            <p className="text-slate-400 text-lg leading-relaxed">
+              Protect your organization with advanced phishing detection and security analytics. Log in to access your security operations console.
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5 p-8">
-            {authMode === 'login' ? (
+          <div className="bg-slate-800 border border-slate-700 rounded-md shadow-lg p-8">
+            <div className="grid grid-cols-2 border-b border-slate-700 mb-6">
+              <button
+                type="button"
+                onClick={() => setAuthMode('login')}
+                className={`py-3 text-base font-medium transition-all duration-200 ${
+                  authMode === 'login' ? 'text-slate-100 border-b-2 border-slate-400' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode('signup')}
+                className={`py-3 text-base font-medium transition-all duration-200 ${
+                  authMode === 'signup' ? 'text-slate-100 border-b-2 border-slate-400' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {authMode === 'login' ? (
+                <div>
+                  <label className="block text-base mb-2 text-slate-300">Operator ID / Email</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Input
+                      type="text"
+                      value={usernameOrEmail}
+                      onChange={(e) => setUsernameOrEmail(e.target.value)}
+                      placeholder="Enter operator ID or email"
+                      className="pl-10 bg-slate-900 border-slate-600 h-11 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-slate-500"
+                      disabled={isLoading}
+                      autoComplete="username"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-base mb-2 text-slate-300">Username</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <Input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Choose username"
+                        className="pl-10 bg-slate-900 border-slate-600 h-11 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-slate-500"
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-base mb-2 text-slate-300">Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@company.com"
+                        className="pl-10 bg-slate-900 border-slate-600 h-11 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-slate-500"
+                        disabled={isLoading}
+                        autoComplete="email"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div>
-                <label className="block text-lg mb-2 text-zinc-200">Operator ID / Email</label>
+                <label className="block text-base mb-2 text-slate-300">{authMode === 'login' ? 'Access Code' : 'Password'}</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <Input
-                    type="text"
-                    value={usernameOrEmail}
-                    onChange={(e) => setUsernameOrEmail(e.target.value)}
-                    placeholder="Enter operator ID or email"
-                    className="pl-10 bg-transparent border-zinc-600 h-12 text-zinc-100 placeholder:text-zinc-500"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={authMode === 'login' ? 'Enter access code' : 'Create password'}
+                    className="pl-10 bg-slate-900 border-slate-600 h-11 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-slate-500"
                     disabled={isLoading}
-                    autoComplete="username"
+                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                   />
                 </div>
               </div>
-            ) : (
-              <>
-                <div>
-                  <label className="block text-lg mb-2 text-zinc-200">Username</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <Input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Choose username"
-                      className="pl-10 bg-transparent border-zinc-600 h-12 text-zinc-100 placeholder:text-zinc-500"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-lg mb-2 text-zinc-200">Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@company.com"
-                      className="pl-10 bg-transparent border-zinc-600 h-12 text-zinc-100 placeholder:text-zinc-500"
-                      disabled={isLoading}
-                      autoComplete="email"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
 
-            <div>
-              <label className="block text-lg mb-2 text-zinc-200">{authMode === 'login' ? 'Access Code' : 'Password'}</label>
-              <div className="relative">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={authMode === 'login' ? 'Enter access code' : 'Create password'}
-                  className="pl-10 bg-transparent border-zinc-600 h-12 text-zinc-100 placeholder:text-zinc-500"
-                  disabled={isLoading}
-                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                />
+              <Button type="submit" className="w-full h-11 bg-slate-700 text-slate-100 hover:bg-slate-600 transition-all duration-200" disabled={isLoading}>
+                {isLoading ? 'Processing...' : authMode === 'login' ? 'Access Console' : 'Create Account'}
+              </Button>
+
+              <div className="flex items-center gap-3 text-slate-500 text-xs uppercase tracking-wide">
+                <div className="h-px flex-1 bg-slate-700" />
+                <span>Or</span>
+                <div className="h-px flex-1 bg-slate-700" />
               </div>
-            </div>
 
-            <Button type="submit" className="w-full h-12 bg-zinc-100 text-zinc-900 hover:bg-zinc-200" disabled={isLoading}>
-              {isLoading ? 'Processing...' : authMode === 'login' ? 'Access Console' : 'Create Account'}
-            </Button>
-
-            <div className="flex items-center gap-3 text-zinc-500 text-xs uppercase tracking-wider">
-              <div className="h-px flex-1 bg-zinc-700" />
-              <span>Or</span>
-              <div className="h-px flex-1 bg-zinc-700" />
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-12 border-zinc-600 text-zinc-100 hover:bg-zinc-900"
-              disabled={isLoading}
-              onClick={handleGoogleAuth}
-            >
-              Continue with Google
-            </Button>
-          </form>
+              <Button
+                type="button"
+                onClick={handleGoogleAuth}
+                className="w-full h-11 bg-slate-600 text-slate-100 hover:bg-slate-500 transition-all duration-200"
+                disabled={isLoading}
+              >
+                Sign in with Google
+              </Button>
+            </form>
+          </div>
         </div>
-
-        <div className="mt-6 text-center text-sm text-zinc-500">
-          <p>Critical Infrastructure Security System</p>
-          <p className="mt-1">Unauthorized access is prohibited</p>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
