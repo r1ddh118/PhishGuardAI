@@ -24,6 +24,12 @@ export async function analyzeBatch(messages: string[]): Promise<BatchScanResult>
 // AI Inference Engine for Phishing Detection
 // Calls FastAPI backend, falls back to mock if offline or error
 
+export interface ExplainabilityPayload {
+  explanations: Array<{ feature?: string; value?: number; reason?: string; contribution_percent?: number }>;
+  highlighted_lines: Array<{ line_number: number; line: string; indicators: string[] }>;
+  class_percentages: Record<string, number>;
+}
+
 export interface InferenceResult {
   prediction: 'safe' | 'suspicious' | 'phishing';
   confidence: number;
@@ -34,11 +40,7 @@ export interface InferenceResult {
     severity: number;
   }[];
   explanation: string;
-  explainability?: {
-    explanations: Array<{ feature?: string; value?: number; reason?: string; contribution_percent?: number }>;
-    highlighted_lines: Array<{ line_number: number; line: string; indicators: string[] }>;
-    class_percentages: Record<string, number>;
-  };
+  explainability?: ExplainabilityPayload;
 }
 
 const PHISHING_PATTERNS = {
@@ -64,19 +66,103 @@ const PHISHING_PATTERNS = {
 
 function analyzeContent(text: string): InferenceResult['triggeredFeatures'] {
   const features = [
-    { name: 'urgency', label: 'Urgency Language', patterns: PHISHING_PATTERNS.urgency },
-    { name: 'impersonation', label: 'Impersonation Indicators', patterns: PHISHING_PATTERNS.impersonation },
-    { name: 'suspicious_url', label: 'Suspicious URL Patterns', patterns: PHISHING_PATTERNS.suspiciousURL },
-    { name: 'financial_trigger', label: 'Financial Keywords', patterns: PHISHING_PATTERNS.financialTrigger },
-    { name: 'credential_request', label: 'Credential Request', patterns: PHISHING_PATTERNS.credentialRequest },
-    { name: 'spoofed_domain', label: 'Domain Spoofing', patterns: PHISHING_PATTERNS.spoofedDomain },
+    { label: 'Urgency Language', patterns: PHISHING_PATTERNS.urgency },
+    { label: 'Impersonation Indicators', patterns: PHISHING_PATTERNS.impersonation },
+    { label: 'Suspicious URL Patterns', patterns: PHISHING_PATTERNS.suspiciousURL },
+    { label: 'Financial Keywords', patterns: PHISHING_PATTERNS.financialTrigger },
+    { label: 'Credential Request', patterns: PHISHING_PATTERNS.credentialRequest },
+    { label: 'Domain Spoofing', patterns: PHISHING_PATTERNS.spoofedDomain },
   ];
 
-  return features.map(feature => {
-    const detected = feature.patterns.some(pattern => pattern.test(text));
-    const severity = detected ? Math.random() * 0.3 + 0.7 : Math.random() * 0.3;
+  return features.map((feature) => {
+    const matchCount = feature.patterns.reduce((acc, pattern) => acc + (pattern.test(text) ? 1 : 0), 0);
+    const detected = matchCount > 0;
+    const ratio = matchCount / feature.patterns.length;
+    const severity = detected
+      ? Math.min(1, 0.6 + ratio * 0.4)
+      : Math.max(0.02, ratio * 0.2);
     return { name: feature.label, detected, severity };
   });
+}
+
+function buildFallbackExplainability(
+  content: string,
+  features: InferenceResult['triggeredFeatures'],
+  confidence: number,
+): ExplainabilityPayload {
+  const detected = features.filter((feature) => feature.detected);
+
+  const explanations = detected.map((feature) => ({
+    feature: feature.name,
+    value: Number(feature.severity.toFixed(3)),
+    reason: 'Matched offline heuristic patterns.',
+    contribution_percent: Number(((feature.severity / Math.max(detected.reduce((sum, item) => sum + item.severity, 0), 1)) * 100).toFixed(2)),
+  }));
+
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const highlighted_lines = lines.flatMap((line, index) => {
+    const lineIndicators: string[] = [];
+
+    if (PHISHING_PATTERNS.urgency.some((pattern) => pattern.test(line))) lineIndicators.push('Urgency Language');
+    if (PHISHING_PATTERNS.impersonation.some((pattern) => pattern.test(line))) lineIndicators.push('Impersonation Indicators');
+    if (PHISHING_PATTERNS.suspiciousURL.some((pattern) => pattern.test(line))) lineIndicators.push('Suspicious URL');
+    if (PHISHING_PATTERNS.financialTrigger.some((pattern) => pattern.test(line))) lineIndicators.push('Financial Keywords');
+    if (PHISHING_PATTERNS.credentialRequest.some((pattern) => pattern.test(line))) lineIndicators.push('Credential Request');
+    if (PHISHING_PATTERNS.spoofedDomain.some((pattern) => pattern.test(line))) lineIndicators.push('Domain Spoofing');
+
+    if (lineIndicators.length === 0) return [];
+
+    return [{
+      line_number: index + 1,
+      line,
+      indicators: Array.from(new Set(lineIndicators)),
+    }];
+  });
+
+  const phishingPercent = Math.min(Math.max(confidence * 100, 0), 100);
+  const suspiciousPercent = Math.min(Math.max((1 - Math.abs(confidence - 0.5) * 2) * 40, 0), 100 - phishingPercent);
+  const safePercent = Math.max(0, 100 - phishingPercent - suspiciousPercent);
+
+  return {
+    explanations,
+    highlighted_lines,
+    class_percentages: {
+      safe: Number(safePercent.toFixed(2)),
+      suspicious: Number(suspiciousPercent.toFixed(2)),
+      phishing: Number(phishingPercent.toFixed(2)),
+    },
+  };
+}
+
+function normalizeExplainability(base: Partial<ExplainabilityPayload> | undefined): ExplainabilityPayload {
+  return {
+    explanations: Array.isArray(base?.explanations) ? base.explanations : [],
+    highlighted_lines: Array.isArray(base?.highlighted_lines) ? base.highlighted_lines : [],
+    class_percentages: {
+      safe: Number(base?.class_percentages?.safe ?? 0),
+      suspicious: Number(base?.class_percentages?.suspicious ?? 0),
+      phishing: Number(base?.class_percentages?.phishing ?? 0),
+    },
+  };
+}
+
+export function ensureExplainability(
+  content: string,
+  confidence: number,
+  explainability?: Partial<ExplainabilityPayload>,
+): ExplainabilityPayload {
+  const normalized = normalizeExplainability(explainability);
+  const hasData =
+    normalized.explanations.length > 0 ||
+    normalized.highlighted_lines.length > 0 ||
+    Object.values(normalized.class_percentages).some((value) => Number(value) > 0);
+
+  if (hasData) return normalized;
+  return buildFallbackExplainability(content, analyzeContent(content), confidence);
 }
 
 export async function analyzeMessage(content: string): Promise<InferenceResult> {
@@ -92,24 +178,26 @@ export async function analyzeMessage(content: string): Promise<InferenceResult> 
 
     const data = await response.json();
 
+    const backendExplainability = ensureExplainability(content, data.confidence, {
+      explanations: data.explanations || [],
+      highlighted_lines: data.highlighted_lines || [],
+      class_percentages: data.class_percentages || {},
+    });
+
     // Map backend response to frontend InferenceResult
     return {
       prediction: (data.classification || (data.is_phishing ? "phishing" : (data.risk_level === "Medium" ? "suspicious" : "safe"))) as InferenceResult["prediction"],
       confidence: data.confidence,
       riskLevel: data.risk_level.toLowerCase() as InferenceResult["riskLevel"],
-      triggeredFeatures: (data.explanations || []).map((ex: any) => ({
+      triggeredFeatures: backendExplainability.explanations.map((ex: any) => ({
         name: ex.feature,
         detected: true,
         severity: (ex.contribution_percent / 100) || 0.8
       })),
-      explanation: (data.explanations || [])
+      explanation: backendExplainability.explanations
         .map((ex: any) => ex.reason)
-        .join("; ") || "No specific phishing indicators detected.",
-      explainability: {
-        explanations: data.explanations || [],
-        highlighted_lines: data.highlighted_lines || [],
-        class_percentages: data.class_percentages || {},
-      }
+        .join('; ') || 'No specific phishing indicators detected.',
+      explainability: backendExplainability,
     };
   } catch (err) {
     console.warn("Falling back to mock inference due to:", err);
@@ -136,7 +224,14 @@ export async function analyzeMessage(content: string): Promise<InferenceResult> 
       ? 'No significant phishing indicators detected. Message appears legitimate.'
       : `Detected ${detectedFeatures.length} suspicious indicator(s): ${detectedFeatures.map(f => f.name).join(', ')}.`;
 
-    return { prediction, confidence, riskLevel, triggeredFeatures: features, explanation };
+    return {
+      prediction,
+      confidence,
+      riskLevel,
+      triggeredFeatures: features,
+      explanation,
+      explainability: ensureExplainability(content, confidence),
+    };
   }
 }
 

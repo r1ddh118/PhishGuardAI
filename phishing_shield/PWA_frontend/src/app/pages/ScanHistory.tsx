@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { getAllScans, exportScansToCSV, deleteScan, saveScan } from '../lib/db';
+import { ensureExplainability } from '../lib/ai-engine';
 import type { ScanRecord } from '../lib/db';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -87,11 +88,11 @@ export function ScanHistory() {
       triggeredFeatures: item.explanations
         .map((explanation) => explanation.feature || explanation.reason)
         .filter((value): value is string => Boolean(value)),
-      explainability: {
+      explainability: ensureExplainability(item.text_preview, item.confidence, {
         explanations: item.explanations,
         highlighted_lines: item.highlighted_lines || [],
         class_percentages: item.class_percentages || {},
-      },
+      }),
     }));
   };
 
