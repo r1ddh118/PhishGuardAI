@@ -53,6 +53,18 @@ phishing_shield/
    npm run dev
    ```
 
+
+### Docker (single container: frontend + backend)
+1. Build the image:
+   ```bash
+   docker build -t phishguard-ai .
+   ```
+2. Run the container:
+   ```bash
+   docker run --rm -p 8000:8000 phishguard-ai
+   ```
+3. Open the app at `http://localhost:8000` (frontend) and use API routes from the same origin.
+
 ## API Endpoints
 
 The following API endpoints are available in the PhishGuard AI backend:
