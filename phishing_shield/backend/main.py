@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 import joblib
 import numpy as np
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
@@ -488,3 +490,16 @@ def list_credentials() -> List[CredentialResponse]:
         )
         for row in rows
     ]
+
+
+FRONTEND_DIST = PROJECT_ROOT / "PWA_frontend" / "dist"
+
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="frontend-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str) -> FileResponse:
+        requested_path = FRONTEND_DIST / full_path
+        if full_path and requested_path.exists() and requested_path.is_file():
+            return FileResponse(requested_path)
+        return FileResponse(FRONTEND_DIST / "index.html")
