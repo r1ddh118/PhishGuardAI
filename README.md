@@ -65,6 +65,11 @@ phishing_shield/
    ```
 3. Open the app at `http://localhost:8000` (frontend) and use API routes from the same origin.
 
+### Render
+```bash
+https://phishguard-ai-rdlv.onrender.com
+```
+
 ## API Endpoints
 
 The following API endpoints are available in the PhishGuard AI backend:
