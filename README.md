@@ -39,7 +39,7 @@ phishing_shield/
    ```
 3. Start FastAPI server:
    ```bash
-   uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+   uvicorn backend.app:app --reload --host 0.0.0.0 --port 8000
    ```
 
 ### Frontend
