@@ -61,8 +61,6 @@ scripts/*.sh
 # Frontend / PWA artifacts (Member 4)
 node_modules/
 PWA_frontend/node_modules/
-PWA_frontend/dist/
-PWA_frontend/build/
 PWA_frontend/.next/
 PWA_frontend/out/
 PWA_frontend/.nuxt/
