@@ -140,12 +140,6 @@ Thumbs.db
 logs/
 *.log
 
-# Generated data / artifacts (Member 1 & 3)
-backend/model/*.pkl
-backend/model/*.joblib
-data/*.npz
-data/features.csv
-
 # Local secrets / env
 .env
 .env.*
