@@ -229,15 +229,15 @@ const getVerdictConfig = (verdict: string) => {
 const getRiskConfig = (risk: string) => {
   switch (risk) {
     case 'low':
-      return { color: 'text-green-500', bg: 'bg-green-500' };
+      return { color: 'text-black', bg: 'bg-green-500' };
     case 'medium':
-      return { color: 'text-yellow-500', bg: 'bg-yellow-500' };
+      return { color: 'text-black', bg: 'bg-yellow-500' };
     case 'high':
-      return { color: 'text-orange-500', bg: 'bg-orange-500' };
+      return { color: 'text-black', bg: 'bg-orange-500' };
     case 'critical':
-      return { color: 'text-red-500', bg: 'bg-red-500' };
+      return { color: 'text-black', bg: 'bg-red-500' };
     default:
-      return { color: 'text-zinc-500', bg: 'bg-zinc-500' };
+      return { color: 'text-black', bg: 'bg-zinc-500' };
   }
 };
 
@@ -566,7 +566,7 @@ const getRiskConfig = (risk: string) => {
                       <div key={idx} className="p-3 rounded border bg-zinc-900 border-zinc-800 flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs text-zinc-400 flex-1 truncate">{res.text_preview}</span>
-                          <Badge className={`${res.risk_level === 'High' ? 'bg-red-500 text-white' : res.risk_level === 'Medium' ? 'bg-yellow-500 text-black' : 'bg-green-500 text-white'}`}>
+                          <Badge className={`${res.risk_level === 'High' ? 'bg-red-500 text-white' : res.risk_level === 'Medium' ? 'bg-yellow-500 text-white' : 'bg-green-500 text-white'}`}>
                             {res.risk_level === 'High' ? 'Phishing' : res.risk_level === 'Medium' ? 'Suspicious' : 'Safe'}
                           </Badge>
                           <span className="text-xs text-zinc-400 ml-2">{(res.confidence * 100).toFixed(1)}%</span>
