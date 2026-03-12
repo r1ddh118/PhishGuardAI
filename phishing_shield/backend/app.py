@@ -9,7 +9,6 @@ from pathlib import Path
 import os
 import socket
 import sys
-import numpy as np
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -30,8 +29,49 @@ VECTORIZER_PATH = ROOT / "model" / "vectorizer.joblib"
 model = None
 vectorizer = None
 
-LOW_RISK_THRESHOLD = 0.35
-HIGH_RISK_THRESHOLD = 0.7
+
+def _clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
+    return max(minimum, min(maximum, value))
+
+
+def _normalize_probabilities(raw_scores: dict[str, float]) -> dict[str, float]:
+    safe_scores = {k: max(0.0, float(v)) for k, v in raw_scores.items()}
+    total = sum(safe_scores.values())
+    if total <= 0:
+        return {"safe": 33.34, "suspicious": 33.33, "phishing": 33.33}
+    return {k: round((v / total) * 100.0, 2) for k, v in safe_scores.items()}
+
+
+def _build_weighted_risk_features(features_dict: dict) -> tuple[float, list[dict]]:
+    factor_config = {
+        "suspicious_url_score": {"label": "Suspicious URL patterns", "weight": 0.20, "cap": 10.0},
+        "credential_request_score": {"label": "Credential request signals", "weight": 0.24, "cap": 6.0},
+        "impersonation_score": {"label": "Impersonation language", "weight": 0.16, "cap": 4.0},
+        "urgency_score": {"label": "Urgency / pressure language", "weight": 0.12, "cap": 4.0},
+        "ip_url_count": {"label": "Raw IP URLs", "weight": 0.10, "cap": 2.0},
+        "shortener_url_count": {"label": "Shortened URLs", "weight": 0.06, "cap": 3.0},
+        "lookalike_domain_count": {"label": "Lookalike domains", "weight": 0.12, "cap": 2.0},
+    }
+
+    details = []
+    weighted_sum = 0.0
+    for key, config in factor_config.items():
+        raw_value = float(features_dict.get(key, 0) or 0)
+        normalized = _clamp(raw_value / config["cap"])
+        weighted = normalized * config["weight"]
+        weighted_sum += weighted
+        details.append(
+            {
+                "factor": config["label"],
+                "feature": key,
+                "raw_value": round(raw_value, 3),
+                "weight": config["weight"],
+                "normalized_score": round(normalized, 4),
+                "weighted_contribution": round(weighted, 4),
+            }
+        )
+
+    return _clamp(weighted_sum), details
 
 def load_model():
     global model, vectorizer
@@ -118,40 +158,31 @@ def perform_prediction(content: str):
     
     # 3. Predict
     probabilities = list(model.predict_proba(X)[0])
-    phishing_prob = float(probabilities[1])
+    phishing_prob = _clamp(float(probabilities[1]))
+    safe_prob_model = _clamp(float(probabilities[0]))
 
-    # 4. Hybrid verdict from model probability + explainable indicators
-    rule_score = (
-        int(features_dict.get("suspicious_url_score", 0)) * 2
-        + int(features_dict.get("credential_request_score", 0)) * 3
-        + int(features_dict.get("impersonation_score", 0)) * 2
-        + int(features_dict.get("urgency_score", 0))
-        + (4 if int(features_dict.get("ip_url_count", 0)) > 0 else 0)
-        + (2 if int(features_dict.get("shortener_url_count", 0)) > 0 else 0)
-        + (4 if int(features_dict.get("lookalike_domain_count", 0)) > 0 else 0)
-    )
-    hybrid_score = (phishing_prob * 0.7) + (min(rule_score, 20) / 20.0 * 0.3)
+    # 4. Weighted hybrid scoring from learned probability + explainable factors
+    weighted_factor_score, risk_factors = _build_weighted_risk_features(features_dict)
+    uncertainty_band = 1.0 - abs(phishing_prob - 0.5) * 2.0
 
-    if features_dict.get("suspicious_url_score", 0) >= 4:
+    raw_class_scores = {
+        "phishing": (phishing_prob * 0.65) + (weighted_factor_score * 0.35),
+        "suspicious": (uncertainty_band * 0.50) + (weighted_factor_score * 0.50),
+        "safe": (safe_prob_model * 0.65) + ((1.0 - weighted_factor_score) * 0.35),
+    }
+    class_percentages = _normalize_probabilities(raw_class_scores)
+    prediction = max(class_percentages, key=class_percentages.get)
+    top_confidence = class_percentages[prediction] / 100.0
+
+    risk_score = _clamp((phishing_prob * 0.55) + (weighted_factor_score * 0.45))
+    if risk_score >= 0.82 or (prediction == "phishing" and class_percentages["phishing"] >= 70):
+        risk_level = "Critical"
+    elif risk_score >= 0.62 or prediction == "phishing":
         risk_level = "High"
-    elif features_dict.get("urgency_score", 0) > 0 and features_dict.get("impersonation_score", 0) > 0:
-        risk_level = "High"
-    elif hybrid_score >= HIGH_RISK_THRESHOLD:
-        risk_level = "High"
-    elif hybrid_score >= LOW_RISK_THRESHOLD:
+    elif risk_score >= 0.38 or prediction == "suspicious":
         risk_level = "Medium"
     else:
         risk_level = "Low"
-
-    if risk_level == "High" and phishing_prob >= 0.95:
-        risk_level = "Critical"
-
-    if risk_level in ["High", "Critical"]:
-        prediction = "phishing"
-    elif risk_level == "Medium":
-        prediction = "suspicious"
-    else:
-        prediction = "safe"
 
     if not features_dict.get("explanations"):
         features_dict["explanations"] = [
@@ -163,17 +194,13 @@ def perform_prediction(content: str):
             }
         ]
 
-    class_percentages = {
-        "phishing": round(max(0.0, min(100.0, phishing_prob * 100.0)), 2),
-        "suspicious": round(max(0.0, min(100.0, hybrid_score * 100.0 - phishing_prob * 40.0)), 2),
-    }
-    class_percentages["safe"] = round(max(0.0, 100.0 - class_percentages["phishing"] - class_percentages["suspicious"]), 2)
-
     return {
         "is_phishing": risk_level in ["High", "Critical"],
         "classification": prediction,
-        "confidence": round(float(phishing_prob), 4),
+        "confidence": round(float(top_confidence), 4),
         "risk_level": risk_level,
+        "risk_score": round(float(risk_score), 4),
+        "risk_factors": risk_factors,
         "class_percentages": class_percentages,
         "explanations": features_dict.get("explanations", []),
         "highlighted_lines": features_dict.get("highlighted_lines", [])
